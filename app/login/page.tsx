@@ -39,21 +39,29 @@ function LoginForm() {
     setSubmitting(true);
     setError(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
+      if (error) {
+        setError(error.message === "Invalid login credentials" ? "Wrong email or password." : error.message);
+        return;
+      }
+
+      // Hard navigation, not router.push: a client-side transition here would
+      // leave this form's own `submitting` state stuck at true if the app
+      // router doesn't fully remount the page, while the header (a separate
+      // server component) still updates — a full reload guarantees a clean,
+      // fully-authenticated render on the destination page.
+      window.location.href = next;
+    } catch {
+      // Without a catch here, any network hiccup or unexpected throw from
+      // signInWithPassword left the button stuck on "Signing in…" forever
+      // with no error shown and no way to retry.
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
       setSubmitting(false);
-      setError(error.message === "Invalid login credentials" ? "Wrong email or password." : error.message);
-      return;
     }
-
-    // Hard navigation, not router.push: a client-side transition here would
-    // leave this form's own `submitting` state stuck at true if the app
-    // router doesn't fully remount the page, while the header (a separate
-    // server component) still updates — a full reload guarantees a clean,
-    // fully-authenticated render on the destination page.
-    window.location.href = next;
   }
 
   return (

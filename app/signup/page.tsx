@@ -23,30 +23,37 @@ function SignupForm() {
     setSubmitting(true);
     setError(null);
 
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name: displayName } },
-    });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { display_name: displayName } },
+      });
 
-    if (error) {
+      if (error) {
+        setError(error.message === "User already registered" ? "An account with that email already exists." : error.message);
+        return;
+      }
+
+      if (data.session) {
+        // Hard navigation — see the comment on the equivalent line in
+        // app/login/page.tsx for why not router.push.
+        window.location.href = next;
+        return;
+      }
+
+      // Project still has "Confirm email" enabled in Supabase — the account
+      // exists but has no active session until that link is clicked.
+      setNeedsConfirmation(true);
+    } catch {
+      // Without this, any network hiccup or unexpected throw from signUp()
+      // left the button stuck on "Creating account…" forever with no error
+      // shown and no way to retry.
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
       setSubmitting(false);
-      setError(error.message === "User already registered" ? "An account with that email already exists." : error.message);
-      return;
     }
-
-    if (data.session) {
-      // Hard navigation — see the comment on the equivalent line in
-      // app/login/page.tsx for why not router.push.
-      window.location.href = next;
-      return;
-    }
-
-    // Project still has "Confirm email" enabled in Supabase — the account
-    // exists but has no active session until that link is clicked.
-    setSubmitting(false);
-    setNeedsConfirmation(true);
   }
 
   if (needsConfirmation) {
