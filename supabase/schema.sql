@@ -1,7 +1,7 @@
 -- Trip Expenses — Supabase schema
 -- Run this once in the Supabase SQL editor for a fresh project.
--- After you (the app's owner) sign in for the first time via magic link, run the
--- one-time "flag yourself as master" statement at the bottom of this file.
+-- After you (the app's owner) sign up for the first time, run the one-time
+-- "flag yourself as master" statement at the bottom of this file.
 
 create extension if not exists "pgcrypto";
 
@@ -154,7 +154,7 @@ create index on settlements (trip_id);
 create index on join_requests (trip_id);
 
 -- ============================================================================
--- Auto-create a profile row whenever a new auth user signs up (magic link)
+-- Auto-create a profile row whenever a new auth user signs up
 -- ============================================================================
 
 create or replace function public.handle_new_user()
@@ -405,8 +405,8 @@ values ('trip-documents', 'trip-documents', true)
 on conflict (id) do nothing;
 
 -- ============================================================================
--- One-time setup step — run this AFTER you've signed in to the app at least
--- once via magic link, so your profile row exists. Replace the email.
+-- One-time setup step — run this AFTER you've signed up in the app at least
+-- once, so your profile row exists. Replace the email.
 -- ============================================================================
 
 -- update profiles set is_master = true where email = 'saishanmat417@gmail.com';

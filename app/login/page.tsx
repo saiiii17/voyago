@@ -1,28 +1,11 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { Logo } from "@/components/Logo";
-
-const LINK_ERROR_MESSAGES: Record<string, string> = {
-  "expired-link": "That link expired or was already used — magic links are single-use. Request a new one below.",
-  "invalid-link": "That sign-in link didn't work. Request a new one below.",
-};
-
-function LinkErrorBanner() {
-  const searchParams = useSearchParams();
-  const linkError = searchParams.get("error");
-  if (!linkError) return null;
-
-  return (
-    <p className="mb-5 rounded-xl bg-red-50 p-3 text-center text-sm text-red-700 ring-1 ring-inset ring-red-100">
-      {LINK_ERROR_MESSAGES[linkError] ?? "Something went wrong signing you in. Please try again."}
-    </p>
-  );
-}
 
 const FEATURES = [
   {
@@ -42,30 +25,79 @@ const FEATURES = [
   },
 ];
 
-export default function LoginPage() {
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") ?? "/";
+
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("sending");
+    setSubmitting(true);
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${location.origin}/auth/confirm` },
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setStatus("error");
-      setError(error.message);
+      setSubmitting(false);
+      setError(error.message === "Invalid login credentials" ? "Wrong email or password." : error.message);
       return;
     }
-    setStatus("sent");
+
+    router.push(next);
+    router.refresh();
   }
 
+  return (
+    <>
+      <h2 className="mb-1.5 text-2xl font-semibold tracking-tight text-stone-900">Welcome back</h2>
+      <p className="mb-8 text-sm text-stone-500">Sign in to plan trips and split bills with your friends.</p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+          />
+        </div>
+        <div>
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <Button type="submit" className="w-full" disabled={submitting}>
+          {submitting ? "Signing in…" : "Sign in"}
+        </Button>
+        <p className="text-center text-xs text-stone-400">
+          New here?{" "}
+          <a href={`/signup?next=${encodeURIComponent(next)}`} className="font-medium text-brand-600 hover:underline">
+            Create an account
+          </a>
+        </p>
+      </form>
+    </>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className="grid min-h-[calc(100vh-64px)] lg:grid-cols-2">
       {/* Branding panel */}
@@ -107,44 +139,9 @@ export default function LoginPage() {
           <div className="mb-5 lg:hidden">
             <Logo size="lg" href={null} showText={false} />
           </div>
-          <h2 className="mb-1.5 text-2xl font-semibold tracking-tight text-stone-900">Welcome back</h2>
-          <p className="mb-8 text-sm text-stone-500">Sign in to plan trips and split bills with your friends.</p>
-
           <Suspense fallback={null}>
-            <LinkErrorBanner />
+            <LoginForm />
           </Suspense>
-
-          {status === "sent" ? (
-            <div className="rounded-2xl bg-brand-50 p-5 text-center ring-1 ring-inset ring-brand-100">
-              <span className="mb-3 mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-xl shadow-sm">
-                ✉️
-              </span>
-              <p className="text-sm text-stone-600">
-                We sent a sign-in link to <strong className="text-stone-900">{email}</strong>. Open it on this
-                device to continue.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  autoFocus
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <Button type="submit" className="w-full" disabled={status === "sending"}>
-                {status === "sending" ? "Sending…" : "Send magic link"}
-              </Button>
-              <p className="text-center text-xs text-stone-400">No password needed — just click the link we email you.</p>
-            </form>
-          )}
         </div>
       </div>
     </div>

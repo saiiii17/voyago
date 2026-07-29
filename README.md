@@ -9,7 +9,7 @@ even split across the whole group. Everything is scoped per-trip, dynamic
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS — deploys on Vercel's free tier
-- Supabase — Postgres, Auth (email magic link), Storage — free tier
+- Supabase — Postgres, Auth (email + password), Storage — free tier
 - Groq (via the Vercel AI SDK) — free tier
   - `qwen/qwen3.6-27b` for receipt photo → structured item extraction
   - `llama-3.3-70b-versatile` for the trip-planning chatbot
@@ -22,11 +22,7 @@ even split across the whole group. Everything is scoped per-trip, dynamic
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run the entire contents of [`supabase/schema.sql`](supabase/schema.sql). This creates every table, the storage buckets, and RLS policies.
-3. In **Authentication → Email templates → Magic Link**, change the confirmation link to:
-   ```
-   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/
-   ```
-   (Auth → URL Configuration → Site URL should match `NEXT_PUBLIC_APP_URL` below.)
+3. In **Authentication → Sign In / Providers → Email**, turn **off** "Confirm email." Sign-up is plain email + password with no confirmation email — Supabase's free-tier email sending is low-volume and shared across every project, so it's not used for auth at all here.
 4. Grab your Project URL, `anon` public key, and `service_role` key from **Settings → API**.
 
 ### 2. Groq API key
@@ -50,7 +46,7 @@ npm run dev
 
 ### 6. Make yourself the master
 
-Sign in once via the magic link (this creates your `profiles` row), then in the Supabase SQL editor:
+Sign up once through the app (this creates your `profiles` row), then in the Supabase SQL editor:
 
 ```sql
 update profiles set is_master = true where email = 'you@example.com';
@@ -71,7 +67,7 @@ The master account can see every trip in the app, regardless of who created it o
 1. Push this repo to GitHub.
 2. Import it in Vercel.
 3. Add the same environment variables from `.env.local` in the Vercel project settings (Production + Preview). Set `NEXT_PUBLIC_APP_URL` to your Vercel deployment URL.
-4. Update the Supabase magic-link redirect URL / Site URL to match your deployed domain.
+4. Update the Supabase Site URL (Authentication → URL Configuration) to match your deployed domain.
 5. Deploy.
 
 ## Project structure
