@@ -1,19 +1,10 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/signup"];
 
-// Header carrying the verified user id downstream, so page-level code (see
-// getCurrentProfile in lib/auth.ts) can skip re-calling supabase.auth.getUser()
-// — a second real network round-trip to Supabase's auth server that was
-// otherwise happening on every single request on top of this one.
-export const VERIFIED_USER_HEADER = "x-voyago-verified-user-id";
-
 export async function updateSession(request: NextRequest) {
-  // Cookies Supabase wants to set (on token refresh) are collected here and
-  // applied to the one response we construct at the end, once the identity
-  // header can be set alongside them — see the getUser() call below.
-  let refreshedCookies: { name: string; value: string; options: CookieOptions }[] = [];
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,7 +16,10 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          refreshedCookies = cookiesToSet;
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -46,14 +40,5 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const requestHeaders = new Headers(request.headers);
-  if (user) {
-    requestHeaders.set(VERIFIED_USER_HEADER, user.id);
-  } else {
-    requestHeaders.delete(VERIFIED_USER_HEADER);
-  }
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  refreshedCookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-  return response;
+  return supabaseResponse;
 }
