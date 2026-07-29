@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local editor/tool preferences — personal, not shared project config
+.claude/settings.local.json
+.vscode/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -1,0 +1,152 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/Button";
+import { Input, Label } from "@/components/ui/Input";
+import { Logo } from "@/components/Logo";
+
+const LINK_ERROR_MESSAGES: Record<string, string> = {
+  "expired-link": "That link expired or was already used — magic links are single-use. Request a new one below.",
+  "invalid-link": "That sign-in link didn't work. Request a new one below.",
+};
+
+function LinkErrorBanner() {
+  const searchParams = useSearchParams();
+  const linkError = searchParams.get("error");
+  if (!linkError) return null;
+
+  return (
+    <p className="mb-5 rounded-xl bg-red-50 p-3 text-center text-sm text-red-700 ring-1 ring-inset ring-red-100">
+      {LINK_ERROR_MESSAGES[linkError] ?? "Something went wrong signing you in. Please try again."}
+    </p>
+  );
+}
+
+const FEATURES = [
+  {
+    icon: "🗺️",
+    title: "Plan the trip",
+    body: "Itinerary and places, a shared packing list, trip documents, and a destination chatbot for questions.",
+  },
+  {
+    icon: "🧾",
+    title: "Split it fairly",
+    body: "Scan a receipt or enter it by hand, tag who had what — tax, tip, and discounts split by actual usage.",
+  },
+  {
+    icon: "🤝",
+    title: "Settle up once",
+    body: "Every expense rolls up into one simplified list of who owes who, not a tangle of individual debts.",
+  },
+];
+
+export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("sending");
+    setError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${location.origin}/auth/confirm` },
+    });
+
+    if (error) {
+      setStatus("error");
+      setError(error.message);
+      return;
+    }
+    setStatus("sent");
+  }
+
+  return (
+    <div className="grid min-h-[calc(100vh-64px)] lg:grid-cols-2">
+      {/* Branding panel */}
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 lg:flex lg:flex-col lg:justify-center lg:px-14 lg:py-16">
+        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-brand-400/25 blur-3xl" />
+        <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-accent-500/15 blur-3xl" />
+
+        <div className="relative max-w-md">
+          <div className="mb-7">
+            <Logo size="lg" theme="ghost" href={null} />
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-[2.15rem]">
+            Plan the trip. Split the bill.
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-brand-100/75">
+            One place for the itinerary, the packing list, and the group chat about where to eat — and for working
+            out exactly who owes who when the bills come in.
+          </p>
+
+          <ul className="mt-10 space-y-6">
+            {FEATURES.map((f) => (
+              <li key={f.title} className="flex gap-3.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-base ring-1 ring-white/15">
+                  {f.icon}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-white">{f.title}</p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-brand-100/65">{f.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex flex-col items-center justify-center px-4 py-16">
+        <div className="w-full max-w-sm">
+          <div className="mb-5 lg:hidden">
+            <Logo size="lg" href={null} showText={false} />
+          </div>
+          <h2 className="mb-1.5 text-2xl font-semibold tracking-tight text-stone-900">Welcome back</h2>
+          <p className="mb-8 text-sm text-stone-500">Sign in to plan trips and split bills with your friends.</p>
+
+          <Suspense fallback={null}>
+            <LinkErrorBanner />
+          </Suspense>
+
+          {status === "sent" ? (
+            <div className="rounded-2xl bg-brand-50 p-5 text-center ring-1 ring-inset ring-brand-100">
+              <span className="mb-3 mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-xl shadow-sm">
+                ✉️
+              </span>
+              <p className="text-sm text-stone-600">
+                We sent a sign-in link to <strong className="text-stone-900">{email}</strong>. Open it on this
+                device to continue.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <Button type="submit" className="w-full" disabled={status === "sending"}>
+                {status === "sending" ? "Sending…" : "Send magic link"}
+              </Button>
+              <p className="text-center text-xs text-stone-400">No password needed — just click the link we email you.</p>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

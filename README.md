@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Voyago
 
-## Getting Started
+Trip planning and item-based bill splitting for group trips. Upload a receipt
+or enter it manually, assign who had what, and it splits the cost (and taxes,
+tip, discounts) proportionally to what each person actually consumed — not an
+even split across the whole group. Everything is scoped per-trip, dynamic
+(any number of friends, any destination), and free to run.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router) + TypeScript + Tailwind CSS — deploys on Vercel's free tier
+- Supabase — Postgres, Auth (email magic link), Storage — free tier
+- Groq (via the Vercel AI SDK) — free tier
+  - `qwen/qwen3.6-27b` for receipt photo → structured item extraction
+  - `llama-3.3-70b-versatile` for the trip-planning chatbot
+- Resend — free tier, join-request/approval emails (optional — the app works without it, emails are just skipped)
+- Frankfurter/Open-Meteo/exchangerate-api — free, no-key FX rates and weather
+
+## One-time setup
+
+### 1. Supabase project
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the SQL editor, run the entire contents of [`supabase/schema.sql`](supabase/schema.sql). This creates every table, the storage buckets, and RLS policies.
+3. In **Authentication → Email templates → Magic Link**, change the confirmation link to:
+   ```
+   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/
+   ```
+   (Auth → URL Configuration → Site URL should match `NEXT_PUBLIC_APP_URL` below.)
+4. Grab your Project URL, `anon` public key, and `service_role` key from **Settings → API**.
+
+### 2. Groq API key
+
+Free at [console.groq.com/keys](https://console.groq.com/keys). Groq's model lineup changes — if `GROQ_VISION_MODEL`/`GROQ_CHAT_MODEL` env overrides aren't set, the app defaults to `qwen/qwen3.6-27b` (vision) and `llama-3.3-70b-versatile` (chat); check [console.groq.com/docs/models](https://console.groq.com/docs/models) if either stops working.
+
+### 3. Resend (optional)
+
+Free at [resend.com/api-keys](https://resend.com/api-keys). Without it, join-request/approval emails are silently skipped — the join/approve flow itself still works from the trip page.
+
+### 4. Environment variables
+
+Copy `.env.local.example` to `.env.local` and fill in the values from the steps above.
+
+### 5. Install and run
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 6. Make yourself the master
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Sign in once via the magic link (this creates your `profiles` row), then in the Supabase SQL editor:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sql
+update profiles set is_master = true where email = 'you@example.com';
+```
 
-## Learn More
+The master account can see every trip in the app, regardless of who created it or whether they're a member. Everyone else only sees trips they created or were approved into.
 
-To learn more about Next.js, take a look at the following resources:
+## How it works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Create a trip** → pick a destination, name, and home currency. You become that trip's owner and its first member.
+- **Invite friends** → share the trip's join link or QR code (trip overview page, owner/master view). A friend requests to join; the owner/master approves from the pending-requests panel. Only approved members can see that trip's data.
+- **Add an expense** → scan a receipt photo (Groq reads it into an editable item list) or enter it manually. For each item, check off who shared it — the cost (and a proportional share of tax/tip/discount) is split only among the people who had it. For simple expenses like a taxi, use "split equally" instead.
+- **Balances** → the overview page shows what each person paid, what they actually consumed, personal (non-split) costs, and a simplified settle-up list — plus the full itemized math behind every number, not just a final total.
+- **Trip planning** → a places/itinerary list with cost estimates, a shared packing checklist, document storage for tickets/bookings, and a destination-aware chatbot for questions and price checks.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploying to Vercel
 
-## Deploy on Vercel
+1. Push this repo to GitHub.
+2. Import it in Vercel.
+3. Add the same environment variables from `.env.local` in the Vercel project settings (Production + Preview). Set `NEXT_PUBLIC_APP_URL` to your Vercel deployment URL.
+4. Update the Supabase magic-link redirect URL / Site URL to match your deployed domain.
+5. Deploy.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `app/` — pages and API route handlers (App Router)
+- `lib/split/` — the split calculation engine (pure functions, no I/O) — `calculate.ts` does one expense's item→person math, `balances.ts` aggregates across a trip, `settle.ts` simplifies debts into a minimal payment list
+- `lib/supabase/` — browser/server/admin Supabase clients
+- `lib/groq/` — receipt OCR and chatbot prompts
+- `lib/auth.ts` / `lib/auth-page.ts` — role/access resolution (pure helpers vs. page-redirecting wrappers)
+- `supabase/schema.sql` — full schema + RLS policies
+- `components/trip/` — trip feature UI

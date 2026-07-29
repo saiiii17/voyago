@@ -1,8 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fbfaf8;
+  --foreground: #221f1a;
+
+  /* Brand — warm teal primary, coral accent. Evokes travel without being twee. */
+  --brand-50: #effcf6;
+  --brand-100: #d3f8e8;
+  --brand-200: #a8f0d4;
+  --brand-400: #22c79e;
+  --brand-500: #14b892;
+  --brand-600: #0c9a79;
+  --brand-700: #0a7c62;
+  --brand-800: #0b6350;
+  --brand-900: #0a4a3d;
+
+  --accent-100: #fde3d1;
+  --accent-500: #f4874b;
+  --accent-600: #e96f2f;
+  --accent-700: #c85a20;
+
+  --surface: #ffffff;
+  --surface-muted: #f6f3ee;
+  --border-subtle: #ebe6dd;
+  --ring: #0c9a79;
 }
 
 @theme inline {
@@ -10,17 +31,84 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-accent-100: var(--accent-100);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border-subtle);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  background-image:
+    radial-gradient(50rem 26rem at 100% -8%, rgba(20, 184, 146, 0.10), transparent 60%),
+    radial-gradient(40rem 22rem at -8% 6%, rgba(244, 135, 75, 0.08), transparent 55%),
+    radial-gradient(38rem 20rem at 50% 110%, rgba(20, 184, 146, 0.05), transparent 60%);
+  background-attachment: fixed;
+  position: relative;
+}
+
+/* Subtle film-grain — the classic "premium SaaS" texture, ~2% opacity so it
+   reads as material rather than noise. Fixed so it doesn't scroll/repaint. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.35;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+  background-size: 120px 120px;
+  mix-blend-mode: multiply;
+}
+
+::selection {
+  background: var(--brand-200);
+  color: var(--brand-900);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Subtle custom scrollbar — most of the app scrolls inside cards/lists */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ded8cb;
+  border-radius: 999px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #cfc7b4;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
