@@ -1,14 +1,13 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { Logo } from "@/components/Logo";
 
 function SignupForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
 
@@ -38,8 +37,9 @@ function SignupForm() {
     }
 
     if (data.session) {
-      router.push(next);
-      router.refresh();
+      // Hard navigation — see the comment on the equivalent line in
+      // app/login/page.tsx for why not router.push.
+      window.location.href = next;
       return;
     }
 

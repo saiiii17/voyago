@@ -1,7 +1,14 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, Trip, TripMember } from "@/lib/types/database";
 
-export async function getCurrentProfile(): Promise<Profile | null> {
+// Both wrapped in React.cache: a trip page's layout and the page itself each
+// independently resolve profile/trip access for their own rendering, which
+// without this means every navigation re-runs the same auth + trip + member
+// queries twice. React.cache dedupes repeat calls with the same arguments to
+// a single execution within one request/render pass — it doesn't persist
+// across requests, so there's no staleness risk, just no redundant round trips.
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,7 +22,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .single();
 
   return (profile as Profile) ?? null;
-}
+});
 
 export type TripAccess = {
   trip: Trip;
@@ -33,7 +40,7 @@ export type TripAccess = {
  * "nothing to see," and callers should render/return a 404 either way
  * (never distinguish "doesn't exist" from "you can't see it").
  */
-export async function getTripAccess(code: string, profile: Profile): Promise<TripAccess | null> {
+export const getTripAccess = cache(async (code: string, profile: Profile): Promise<TripAccess | null> => {
   const supabase = await createClient();
 
   const { data: trip } = await supabase
@@ -61,4 +68,4 @@ export async function getTripAccess(code: string, profile: Profile): Promise<Tri
     isMaster,
     canManage: isOwner || isMaster,
   };
-}
+});

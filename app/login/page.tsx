@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -26,7 +26,6 @@ const FEATURES = [
 ];
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
 
@@ -49,8 +48,12 @@ function LoginForm() {
       return;
     }
 
-    router.push(next);
-    router.refresh();
+    // Hard navigation, not router.push: a client-side transition here would
+    // leave this form's own `submitting` state stuck at true if the app
+    // router doesn't fully remount the page, while the header (a separate
+    // server component) still updates — a full reload guarantees a clean,
+    // fully-authenticated render on the destination page.
+    window.location.href = next;
   }
 
   return (
