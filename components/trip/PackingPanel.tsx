@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -16,37 +15,77 @@ export function PackingPanel({
   initialItems: PackingItem[];
   members: TripMember[];
 }) {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const nameById = new Map(members.map((m) => [m.id, m.display_name]));
   const checkedCount = initialItems.filter((i) => i.is_checked).length;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    await fetch(`/api/trips/${code}/packing`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    setSubmitting(false);
-    setName("");
-    router.refresh();
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/packing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not add that item.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function toggle(item: PackingItem) {
-    await fetch(`/api/trips/${code}/packing/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isChecked: !item.is_checked }),
-    });
-    router.refresh();
+    setBusyId(item.id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/packing/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isChecked: !item.is_checked }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not update that item.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function remove(id: string) {
-    await fetch(`/api/trips/${code}/packing/${id}`, { method: "DELETE" });
-    router.refresh();
+    setBusyId(id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/packing/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not remove that item.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -54,9 +93,10 @@ export function PackingPanel({
       <form onSubmit={handleSubmit} className="flex gap-2">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Add a packing item…" />
         <Button type="submit" disabled={submitting || !name.trim()}>
-          Add
+          {submitting ? "Adding…" : "Add"}
         </Button>
       </form>
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <Card>
         {initialItems.length > 0 && (
@@ -80,15 +120,21 @@ export function PackingPanel({
                   type="checkbox"
                   checked={item.is_checked}
                   onChange={() => toggle(item)}
-                  className="h-4 w-4 accent-brand-600"
+                  disabled={busyId === item.id}
+                  className="h-4 w-4 accent-brand-600 disabled:opacity-50"
                 />
                 <span className={item.is_checked ? "text-stone-400 line-through" : "text-stone-800"}>{item.name}</span>
                 {item.assigned_to && (
                   <span className="text-xs text-stone-400">({nameById.get(item.assigned_to) ?? "?"})</span>
                 )}
               </label>
-              <button onClick={() => remove(item.id)} className="text-stone-300 hover:text-red-500">
-                ✕
+              <button
+                onClick={() => remove(item.id)}
+                disabled={busyId === item.id}
+                className="text-stone-300 hover:text-red-500 disabled:opacity-50"
+                aria-label="Remove item"
+              >
+                {busyId === item.id ? "…" : "✕"}
               </button>
             </li>
           ))}

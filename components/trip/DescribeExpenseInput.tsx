@@ -33,21 +33,24 @@ export function DescribeExpenseInput({ code, onParsed }: Props) {
     setLoading(true);
     setError(null);
 
-    const res = await fetch(`/api/trips/${code}/expenses/parse-text`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    setLoading(false);
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(typeof body.error === "string" ? body.error : "Could not parse that — try rephrasing.");
-      return;
+    try {
+      const res = await fetch(`/api/trips/${code}/expenses/parse-text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not parse that — try rephrasing.");
+        return;
+      }
+      onParsed(await res.json());
+      setText("");
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-
-    onParsed(await res.json());
-    setText("");
   }
 
   return (

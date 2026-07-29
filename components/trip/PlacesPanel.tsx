@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -33,31 +32,41 @@ export function PlacesPanel({
   homeCurrency: string;
   initialPlaces: TripPlace[];
 }) {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [category, setCategory] = useState<PlaceCategory>("activity");
   const [notes, setNotes] = useState("");
   const [estimatedCost, setEstimatedCost] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    await fetch(`/api/trips/${code}/places`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        category,
-        notes: notes || undefined,
-        estimatedCost: estimatedCost ? Number(estimatedCost) : null,
-      }),
-    });
-    setSubmitting(false);
-    setName("");
-    setNotes("");
-    setEstimatedCost("");
-    router.refresh();
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/places`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          category,
+          notes: notes || undefined,
+          estimatedCost: estimatedCost ? Number(estimatedCost) : null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not add that place.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function cycleStatus(place: TripPlace) {
@@ -66,17 +75,45 @@ export function PlacesPanel({
       visited: "skipped",
       skipped: "planned",
     };
-    await fetch(`/api/trips/${code}/places/${place.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next[place.status] }),
-    });
-    router.refresh();
+    setBusyId(place.id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/places/${place.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next[place.status] }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not update that place.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function remove(id: string) {
-    await fetch(`/api/trips/${code}/places/${id}`, { method: "DELETE" });
-    router.refresh();
+    setBusyId(id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/places/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not remove that place.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -108,6 +145,7 @@ export function PlacesPanel({
             <Label htmlFor="placeNotes">Notes</Label>
             <Textarea id="placeNotes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Adding…" : "Add place"}
           </Button>
@@ -124,9 +162,9 @@ export function PlacesPanel({
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-stone-900">{p.name}</p>
-                  <button onClick={() => cycleStatus(p)}>
+                  <button onClick={() => cycleStatus(p)} disabled={busyId === p.id} className="disabled:opacity-50">
                     <Badge tone={STATUS_TONE[p.status]} className={p.status === "skipped" ? "line-through" : ""}>
-                      {p.status}
+                      {busyId === p.id ? "…" : p.status}
                     </Badge>
                   </button>
                 </div>
@@ -138,7 +176,12 @@ export function PlacesPanel({
               {p.estimated_cost != null && (
                 <span className="text-sm text-stone-500">{formatCurrency(p.estimated_cost, p.currency ?? homeCurrency)}</span>
               )}
-              <button onClick={() => remove(p.id)} className="text-stone-300 hover:text-red-500">
+              <button
+                onClick={() => remove(p.id)}
+                disabled={busyId === p.id}
+                className="text-stone-300 hover:text-red-500 disabled:opacity-50"
+                aria-label="Remove place"
+              >
                 ✕
               </button>
             </div>

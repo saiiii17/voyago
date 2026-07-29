@@ -1,36 +1,55 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { formatDate } from "@/lib/utils";
 import type { TripDocument } from "@/lib/types/database";
 
 export function DocumentsPanel({ code, initialDocuments }: { code: string; initialDocuments: TripDocument[] }) {
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleFile(file: File) {
     setUploading(true);
     setError(null);
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch(`/api/trips/${code}/documents`, { method: "POST", body: formData });
-    setUploading(false);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(typeof body.error === "string" ? body.error : "Upload failed.");
-      return;
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/trips/${code}/documents`, { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Upload failed.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setUploading(false);
     }
-    router.refresh();
   }
 
   async function remove(id: string) {
-    await fetch(`/api/trips/${code}/documents/${id}`, { method: "DELETE" });
-    router.refresh();
+    setRemovingId(id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/documents/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not remove that document.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   return (
@@ -69,8 +88,13 @@ export function DocumentsPanel({ code, initialDocuments }: { code: string; initi
             </a>
             <div className="flex items-center gap-3">
               <span className="text-xs text-stone-400">{formatDate(doc.created_at)}</span>
-              <button onClick={() => remove(doc.id)} className="text-stone-300 hover:text-red-500">
-                ✕
+              <button
+                onClick={() => remove(doc.id)}
+                disabled={removingId === doc.id}
+                className="text-stone-300 hover:text-red-500 disabled:opacity-50"
+                aria-label="Remove document"
+              >
+                {removingId === doc.id ? "…" : "✕"}
               </button>
             </div>
           </Card>

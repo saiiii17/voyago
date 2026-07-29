@@ -1,24 +1,31 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export function SignOutButton() {
-  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    setSigningOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } finally {
+      // Hard navigation, not router.push: guarantees the header and every
+      // server-rendered page re-check auth state fresh, with no chance of a
+      // stale client-side cache still showing the signed-in view.
+      window.location.href = "/login";
+    }
   }
 
   return (
     <button
       onClick={handleSignOut}
-      className="rounded-full px-3 py-1.5 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-900"
+      disabled={signingOut}
+      className="rounded-full px-3 py-1.5 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-900 disabled:opacity-50"
     >
-      Sign out
+      {signingOut ? "…" : "Sign out"}
     </button>
   );
 }

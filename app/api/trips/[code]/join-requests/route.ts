@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile, getTripAccess } from "@/lib/auth";
-import { sendJoinApprovedEmail } from "@/lib/email";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
@@ -48,7 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
 
   const { data: joinRequest } = await supabase
     .from("join_requests")
-    .select("*, profiles(display_name, email)")
+    .select("*, profiles(display_name)")
     .eq("id", requestId)
     .eq("trip_id", access.trip.id)
     .single();
@@ -61,19 +60,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
   if (action === "approve") {
-    const requesterProfile = joinRequest.profiles as unknown as { display_name: string; email: string };
+    const requesterProfile = joinRequest.profiles as unknown as { display_name: string };
     const { error: memberError } = await supabase.from("trip_members").insert({
       trip_id: access.trip.id,
       profile_id: joinRequest.profile_id,
       display_name: displayName ?? requesterProfile.display_name,
     });
     if (memberError) return NextResponse.json({ error: memberError.message }, { status: 500 });
-
-    await sendJoinApprovedEmail({
-      to: requesterProfile.email,
-      tripName: access.trip.name,
-      tripUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/trip/${code}`,
-    });
   }
 
   return NextResponse.json({ ok: true });

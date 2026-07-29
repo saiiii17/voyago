@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
@@ -28,21 +27,33 @@ function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
 }
 
 export function BalanceSummary({ code, homeCurrency, balances, suggestions, members }: Props) {
-  const router = useRouter();
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const nameById = new Map(members.map((m) => [m.id, m.display_name]));
   const budgetById = new Map(members.map((m) => [m.id, m]));
 
   async function markPaid(s: SettlementSuggestion) {
     const key = `${s.fromMemberId}:${s.toMemberId}`;
     setBusyKey(key);
-    await fetch(`/api/trips/${code}/settlements`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fromMemberId: s.fromMemberId, toMemberId: s.toMemberId, amount: s.amount }),
-    });
-    setBusyKey(null);
-    router.refresh();
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/settlements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromMemberId: s.fromMemberId, toMemberId: s.toMemberId, amount: s.amount }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not mark that as paid.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setBusyKey(null);
+    }
   }
 
   return (
@@ -157,6 +168,7 @@ export function BalanceSummary({ code, homeCurrency, balances, suggestions, memb
 
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-stone-900">Settle up</h2>
+        {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
         {suggestions.length === 0 ? (
           <p className="text-sm text-stone-500">Everyone&apos;s square. Nothing to settle. 🎉</p>
         ) : (

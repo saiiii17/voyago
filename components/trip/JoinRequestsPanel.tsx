@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -12,18 +11,33 @@ interface PendingRequest {
 }
 
 export function JoinRequestsPanel({ code, requests }: { code: string; requests: PendingRequest[] }) {
-  const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function decide(requestId: string, action: "approve" | "reject") {
     setBusyId(requestId);
-    await fetch(`/api/trips/${code}/join-requests`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId, action }),
-    });
-    setBusyId(null);
-    router.refresh();
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/join-requests`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not update that request.");
+        setBusyId(null);
+        return;
+      }
+      // Hard reload, not router.refresh(): this list is passed down from a
+      // Server Component prop, and a soft refresh was leaving the approved/
+      // declined request showing here until a manual page reload.
+      window.location.reload();
+    } catch {
+      setBusyId(null);
+      setError("Something went wrong — check your connection and try again.");
+    }
   }
 
   if (requests.length === 0) return null;
@@ -34,6 +48,7 @@ export function JoinRequestsPanel({ code, requests }: { code: string; requests: 
         🔔 Pending join requests
         <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">{requests.length}</span>
       </h2>
+      {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
       <div className="space-y-2">
         {requests.map((r) => (
           <div
@@ -51,10 +66,10 @@ export function JoinRequestsPanel({ code, requests }: { code: string; requests: 
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="secondary" disabled={busyId === r.id} onClick={() => decide(r.id, "reject")}>
-                Decline
+                {busyId === r.id ? "…" : "Decline"}
               </Button>
               <Button size="sm" disabled={busyId === r.id} onClick={() => decide(r.id, "approve")}>
-                Approve
+                {busyId === r.id ? "…" : "Approve"}
               </Button>
             </div>
           </div>

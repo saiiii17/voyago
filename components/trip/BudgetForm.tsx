@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -16,23 +15,35 @@ export function BudgetForm({
   member: TripMember;
   homeCurrency: string;
 }) {
-  const router = useRouter();
   const [amount, setAmount] = useState(member.budget_amount?.toString() ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    await fetch(`/api/trips/${code}/members/${member.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        budgetAmount: amount ? Number(amount) : null,
-        budgetCurrency: amount ? member.budget_currency ?? homeCurrency : null,
-      }),
-    });
-    setSubmitting(false);
-    router.refresh();
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/members/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          budgetAmount: amount ? Number(amount) : null,
+          budgetCurrency: amount ? member.budget_currency ?? homeCurrency : null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not save your budget.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -58,6 +69,7 @@ export function BudgetForm({
       <p className="mt-2 text-xs text-stone-400">
         Shown on the trip overview against what you&apos;ve actually spent so far.
       </p>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </Card>
   );
 }

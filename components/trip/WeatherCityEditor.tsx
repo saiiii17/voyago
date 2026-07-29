@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
 export function WeatherCityEditor({
@@ -13,7 +12,6 @@ export function WeatherCityEditor({
   currentCity: string | null;
   placeholder: string;
 }) {
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [city, setCity] = useState(currentCity ?? "");
   const [saving, setSaving] = useState(false);
@@ -23,21 +21,23 @@ export function WeatherCityEditor({
     setSaving(true);
     setError(null);
 
-    const res = await fetch(`/api/trips/${code}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weatherCity: city.trim() || null }),
-    });
-    setSaving(false);
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(typeof body.error === "string" ? body.error : "Could not update city.");
-      return;
+    try {
+      const res = await fetch(`/api/trips/${code}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weatherCity: city.trim() || null }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not update city.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-
-    setEditing(false);
-    router.refresh();
   }
 
   if (!editing) {

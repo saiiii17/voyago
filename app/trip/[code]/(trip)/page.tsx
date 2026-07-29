@@ -6,6 +6,7 @@ import { CategoryChart } from "@/components/trip/CategoryChart";
 import { WeatherWidget } from "@/components/trip/WeatherWidget";
 import { TripQRCode } from "@/components/trip/TripQRCode";
 import { JoinRequestsPanel } from "@/components/trip/JoinRequestsPanel";
+import { MembersPanel } from "@/components/trip/MembersPanel";
 import { CurrencyConvertWidget } from "@/components/trip/CurrencyConvertWidget";
 import type { ExpenseCategory } from "@/lib/types/database";
 
@@ -51,6 +52,7 @@ export default async function TripOverviewPage({ params }: { params: Promise<{ c
       </div>
 
       {access.canManage && <TripQRCode code={code} />}
+      {access.canManage && <MembersPanel code={code} members={members} ownerId={access.trip.owner_id} />}
 
       <CategoryChart homeCurrency={access.trip.home_currency} spendByCategory={spendByCategory} />
 

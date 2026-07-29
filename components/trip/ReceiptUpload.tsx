@@ -20,20 +20,24 @@ export function ReceiptUpload({ code, onScanned }: Props) {
     setError(null);
     setPreviewUrl(URL.createObjectURL(file));
 
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    const res = await fetch(`/api/trips/${code}/expenses/scan`, { method: "POST", body: formData });
-    setScanning(false);
+      const res = await fetch(`/api/trips/${code}/expenses/scan`, { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not read that receipt.");
+        return;
+      }
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(typeof body.error === "string" ? body.error : "Could not read that receipt.");
-      return;
+      const { parsed, receiptImageUrl } = await res.json();
+      onScanned(parsed, receiptImageUrl);
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setScanning(false);
     }
-
-    const { parsed, receiptImageUrl } = await res.json();
-    onScanned(parsed, receiptImageUrl);
   }
 
   return (

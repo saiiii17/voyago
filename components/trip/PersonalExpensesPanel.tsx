@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
@@ -19,32 +18,57 @@ export function PersonalExpensesPanel({
   homeCurrency: string;
   initialExpenses: PersonalExpense[];
 }) {
-  const router = useRouter();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("other");
   const [amount, setAmount] = useState(0);
   const [currency, setCurrency] = useState(homeCurrency);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const total = initialExpenses.reduce((sum, e) => sum + e.amount * e.fx_rate_to_home, 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    await fetch(`/api/trips/${code}/personal-expenses`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, category, amount, currency }),
-    });
-    setSubmitting(false);
-    setTitle("");
-    setAmount(0);
-    router.refresh();
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/personal-expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, category, amount, currency }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not save that cost.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/trips/${code}/personal-expenses/${id}`, { method: "DELETE" });
-    router.refresh();
+    setDeletingId(id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/trips/${code}/personal-expenses/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not delete that cost.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -79,6 +103,9 @@ export function PersonalExpensesPanel({
             <Label htmlFor="pCurrency">Currency</Label>
             <Input id="pCurrency" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={3} />
           </div>
+          {error && (
+            <p className="text-sm text-red-600 sm:col-span-2">{error}</p>
+          )}
           <div className="sm:col-span-2">
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Saving…" : "Add"}
@@ -98,8 +125,13 @@ export function PersonalExpensesPanel({
             </div>
             <div className="flex items-center gap-3">
               <span className="font-semibold text-stone-900">{formatCurrency(e.amount, e.currency)}</span>
-              <button onClick={() => handleDelete(e.id)} className="text-stone-300 hover:text-red-500">
-                ✕
+              <button
+                onClick={() => handleDelete(e.id)}
+                disabled={deletingId === e.id}
+                className="text-stone-300 hover:text-red-500 disabled:opacity-50"
+                aria-label="Delete"
+              >
+                {deletingId === e.id ? "…" : "✕"}
               </button>
             </div>
           </Card>

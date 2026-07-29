@@ -13,7 +13,6 @@ even split across the whole group. Everything is scoped per-trip, dynamic
 - Groq (via the Vercel AI SDK) — free tier
   - `qwen/qwen3.6-27b` for receipt photo → structured item extraction
   - `llama-3.3-70b-versatile` for the trip-planning chatbot
-- Resend — free tier, join-request/approval emails (optional — the app works without it, emails are just skipped)
 - Frankfurter/Open-Meteo/exchangerate-api — free, no-key FX rates and weather
 
 ## One-time setup
@@ -29,22 +28,18 @@ even split across the whole group. Everything is scoped per-trip, dynamic
 
 Free at [console.groq.com/keys](https://console.groq.com/keys). Groq's model lineup changes — if `GROQ_VISION_MODEL`/`GROQ_CHAT_MODEL` env overrides aren't set, the app defaults to `qwen/qwen3.6-27b` (vision) and `llama-3.3-70b-versatile` (chat); check [console.groq.com/docs/models](https://console.groq.com/docs/models) if either stops working.
 
-### 3. Resend (optional)
-
-Free at [resend.com/api-keys](https://resend.com/api-keys). Without it, join-request/approval emails are silently skipped — the join/approve flow itself still works from the trip page.
-
-### 4. Environment variables
+### 3. Environment variables
 
 Copy `.env.local.example` to `.env.local` and fill in the values from the steps above.
 
-### 5. Install and run
+### 4. Install and run
 
 ```bash
 npm install
 npm run dev
 ```
 
-### 6. Make yourself the master
+### 5. Make yourself the master
 
 Sign up once through the app (this creates your `profiles` row), then in the Supabase SQL editor:
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
@@ -28,8 +27,6 @@ export function ExpenseForm({
   members: TripMember[];
   homeCurrency: string;
 }) {
-  const router = useRouter();
-
   const [splitMode, setSplitMode] = useState<"itemized" | "equal">("itemized");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("food");
@@ -156,21 +153,25 @@ export function ExpenseForm({
     }
 
     setSubmitting(true);
-    const res = await fetch(`/api/trips/${code}/expenses`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setSubmitting(false);
+    try {
+      const res = await fetch(`/api/trips/${code}/expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(typeof body.error === "string" ? body.error : "Could not save this expense.");
-      return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "Could not save this expense.");
+        return;
+      }
+
+      window.location.href = `/trip/${code}/expenses`;
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    router.push(`/trip/${code}/expenses`);
-    router.refresh();
   }
 
   return (

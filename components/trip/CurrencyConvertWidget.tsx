@@ -19,14 +19,20 @@ export function CurrencyConvertWidget({ defaultFrom, defaultTo }: { defaultFrom:
   async function convert() {
     setLoading(true);
     setError(null);
-    const res = await fetch(`/api/fx?from=${from}&to=${to}`);
-    setLoading(false);
-    if (!res.ok) {
-      setError("Couldn't fetch a rate for that pair.");
-      return;
+
+    try {
+      const res = await fetch(`/api/fx?from=${from}&to=${to}`);
+      if (!res.ok) {
+        setError("Couldn't fetch a rate for that pair.");
+        return;
+      }
+      const { rate } = await res.json();
+      setResult(amount * rate);
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    const { rate } = await res.json();
-    setResult(amount * rate);
   }
 
   return (
