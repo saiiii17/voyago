@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchExpenseInputs } from "@/lib/split/fetch";
 import { calculateBalances } from "@/lib/split/balances";
 import { applyPaidSettlements, simplifyDebts } from "@/lib/split/settle";
+import { calculateRawPairwiseDebts } from "@/lib/split/pairwise";
 import type { Settlement, TripMember } from "@/lib/types/database";
 
 export async function getTripBalances(tripId: string) {
@@ -40,6 +41,14 @@ export async function getTripBalances(tripId: string) {
   const settlementSuggestions = simplifyDebts(
     netted.map((b) => ({ tripMemberId: b.tripMemberId, netBalance: b.netBalance }))
   );
+  const rawPairwiseDebts = calculateRawPairwiseDebts(expenseInputs, expenseBreakdowns);
 
-  return { members: memberList, balances, expenseBreakdowns, settlementSuggestions, paidSettlements: paid };
+  return {
+    members: memberList,
+    balances,
+    expenseBreakdowns,
+    settlementSuggestions,
+    paidSettlements: paid,
+    rawPairwiseDebts,
+  };
 }

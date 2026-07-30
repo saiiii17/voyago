@@ -105,6 +105,7 @@ export interface TripPlace {
   estimated_cost: number | null;
   currency: string | null;
   status: "planned" | "visited" | "skipped";
+  visit_date: string | null;
   added_by: string;
   created_at: string;
 }

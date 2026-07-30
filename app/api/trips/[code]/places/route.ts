@@ -9,6 +9,7 @@ const createSchema = z.object({
   notes: z.string().trim().max(1000).optional(),
   estimatedCost: z.number().nonnegative().nullable().optional(),
   currency: z.string().trim().length(3).toUpperCase().nullable().optional(),
+  visitDate: z.string().date().nullable().optional(),
 });
 
 export async function GET(_request: Request, { params }: { params: Promise<{ code: string }> }) {
@@ -52,6 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       notes: parsed.data.notes ?? null,
       estimated_cost: parsed.data.estimatedCost ?? null,
       currency: parsed.data.currency ?? access.trip.home_currency,
+      visit_date: parsed.data.visitDate ?? null,
       added_by: access.member.id,
     })
     .select("*")

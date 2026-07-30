@@ -13,7 +13,8 @@ export default async function PlacesPage({ params }: { params: Promise<{ code: s
     .from("trip_places")
     .select("*")
     .eq("trip_id", access.trip.id)
-    .order("created_at", { ascending: false });
+    .order("visit_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
 
   return (
     <div className="max-w-2xl">

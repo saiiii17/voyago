@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -23,6 +23,57 @@ const STATUS_TONE: Record<TripPlace["status"], "brand" | "stone" | "accent"> = {
   skipped: "stone",
 };
 
+function formatDayLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" }).format(date);
+}
+
+interface PlaceCardProps {
+  place: TripPlace;
+  homeCurrency: string;
+  busy: boolean;
+  onCycleStatus: (place: TripPlace) => void;
+  onRemove: (id: string) => void;
+}
+
+function PlaceCard({ place: p, homeCurrency, busy, onCycleStatus, onRemove }: PlaceCardProps) {
+  return (
+    <Card className="flex items-start justify-between !p-4">
+      <div className="flex gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-base">
+          {CATEGORY_ICON[p.category]}
+        </span>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium text-stone-900">{p.name}</p>
+            <button onClick={() => onCycleStatus(p)}>
+              <Badge tone={STATUS_TONE[p.status]} className={p.status === "skipped" ? "line-through" : ""}>
+                {p.status}
+              </Badge>
+            </button>
+          </div>
+          <p className="text-xs text-stone-400 capitalize">{p.category}</p>
+          {p.notes && <p className="mt-1 text-sm whitespace-pre-line text-stone-600">{p.notes}</p>}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        {p.estimated_cost != null && (
+          <span className="text-sm text-stone-500">{formatCurrency(p.estimated_cost, p.currency ?? homeCurrency)}</span>
+        )}
+        <button
+          onClick={() => onRemove(p.id)}
+          disabled={busy}
+          className="text-stone-300 hover:text-red-500 disabled:opacity-50"
+          aria-label="Remove place"
+        >
+          {busy ? "…" : "✕"}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
 export function PlacesPanel({
   code,
   homeCurrency,
@@ -37,9 +88,24 @@ export function PlacesPanel({
   const [category, setCategory] = useState<PlaceCategory>("activity");
   const [notes, setNotes] = useState("");
   const [estimatedCost, setEstimatedCost] = useState<string>("");
+  const [visitDate, setVisitDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const { sortedDates, byDate, undated } = useMemo(() => {
+    const map = new Map<string, TripPlace[]>();
+    const undatedItems: TripPlace[] = [];
+    for (const p of places) {
+      if (!p.visit_date) {
+        undatedItems.push(p);
+        continue;
+      }
+      if (!map.has(p.visit_date)) map.set(p.visit_date, []);
+      map.get(p.visit_date)!.push(p);
+    }
+    return { sortedDates: [...map.keys()].sort(), byDate: map, undated: undatedItems };
+  }, [places]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,6 +121,7 @@ export function PlacesPanel({
           category,
           notes: notes || undefined,
           estimatedCost: estimatedCost ? Number(estimatedCost) : null,
+          visitDate: visitDate || null,
         }),
       });
       if (!res.ok) {
@@ -143,9 +210,15 @@ export function PlacesPanel({
               </Select>
             </div>
           </div>
-          <div>
-            <Label htmlFor="placeCost">Estimated cost ({homeCurrency}, optional)</Label>
-            <Input id="placeCost" type="number" step="0.01" min="0" value={estimatedCost} onChange={(e) => setEstimatedCost(e.target.value)} />
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="placeDate">Date (optional)</Label>
+              <Input id="placeDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="placeCost">Estimated cost ({homeCurrency}, optional)</Label>
+              <Input id="placeCost" type="number" step="0.01" min="0" value={estimatedCost} onChange={(e) => setEstimatedCost(e.target.value)} />
+            </div>
           </div>
           <div>
             <Label htmlFor="placeNotes">Notes</Label>
@@ -158,41 +231,51 @@ export function PlacesPanel({
         </form>
       </Card>
 
-      <div className="space-y-2">
-        {places.map((p) => (
-          <Card key={p.id} className="flex items-start justify-between !p-4">
-            <div className="flex gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-base">
-                {CATEGORY_ICON[p.category]}
+      <div className="space-y-7">
+        {sortedDates.map((date, idx) => (
+          <div key={date}>
+            <div className="mb-3 flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-bold text-white shadow-sm shadow-brand-900/20">
+                {idx + 1}
               </span>
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-stone-900">{p.name}</p>
-                  <button onClick={() => cycleStatus(p)}>
-                    <Badge tone={STATUS_TONE[p.status]} className={p.status === "skipped" ? "line-through" : ""}>
-                      {p.status}
-                    </Badge>
-                  </button>
-                </div>
-                <p className="text-xs text-stone-400 capitalize">{p.category}</p>
-                {p.notes && <p className="mt-1 text-sm text-stone-600">{p.notes}</p>}
+                <p className="text-sm font-semibold text-stone-900">{formatDayLabel(date)}</p>
+                <p className="text-xs text-stone-400">Day {idx + 1} of the trip</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {p.estimated_cost != null && (
-                <span className="text-sm text-stone-500">{formatCurrency(p.estimated_cost, p.currency ?? homeCurrency)}</span>
-              )}
-              <button
-                onClick={() => remove(p.id)}
-                disabled={busyId === p.id}
-                className="text-stone-300 hover:text-red-500 disabled:opacity-50"
-                aria-label="Remove place"
-              >
-                {busyId === p.id ? "…" : "✕"}
-              </button>
+            <div className="space-y-2 border-l-2 border-brand-100 pl-4">
+              {byDate.get(date)!.map((p) => (
+                <PlaceCard
+                  key={p.id}
+                  place={p}
+                  homeCurrency={homeCurrency}
+                  busy={busyId === p.id}
+                  onCycleStatus={cycleStatus}
+                  onRemove={remove}
+                />
+              ))}
             </div>
-          </Card>
+          </div>
         ))}
+
+        {undated.length > 0 && (
+          <div>
+            {sortedDates.length > 0 && <p className="mb-3 text-sm font-semibold text-stone-500">Unscheduled</p>}
+            <div className="space-y-2">
+              {undated.map((p) => (
+                <PlaceCard
+                  key={p.id}
+                  place={p}
+                  homeCurrency={homeCurrency}
+                  busy={busyId === p.id}
+                  onCycleStatus={cycleStatus}
+                  onRemove={remove}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {places.length === 0 && (
           <Card className="text-center text-sm text-stone-500">Nothing planned yet — add your first spot above.</Card>
         )}

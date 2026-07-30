@@ -107,6 +107,7 @@ create table trip_places (
   estimated_cost numeric,
   currency text,
   status text not null default 'planned' check (status in ('planned', 'visited', 'skipped')),
+  visit_date date,
   added_by uuid not null references trip_members (id) on delete cascade,
   created_at timestamptz not null default now()
 );
