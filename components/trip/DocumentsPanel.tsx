@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/utils";
 import type { TripDocument } from "@/lib/types/database";
 
 export function DocumentsPanel({ code, initialDocuments }: { code: string; initialDocuments: TripDocument[] }) {
+  const [documents, setDocuments] = useState(initialDocuments);
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -25,7 +26,8 @@ export function DocumentsPanel({ code, initialDocuments }: { code: string; initi
         setError(typeof body.error === "string" ? body.error : "Upload failed.");
         return;
       }
-      window.location.reload();
+      const { document } = await res.json();
+      setDocuments((prev) => [document, ...prev]);
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {
@@ -36,16 +38,18 @@ export function DocumentsPanel({ code, initialDocuments }: { code: string; initi
   async function remove(id: string) {
     setRemovingId(id);
     setError(null);
+    const previous = documents;
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
 
     try {
       const res = await fetch(`/api/trips/${code}/documents/${id}`, { method: "DELETE" });
       if (!res.ok) {
+        setDocuments(previous);
         const body = await res.json().catch(() => ({}));
         setError(typeof body.error === "string" ? body.error : "Could not remove that document.");
-        return;
       }
-      window.location.reload();
     } catch {
+      setDocuments(previous);
       setError("Something went wrong — check your connection and try again.");
     } finally {
       setRemovingId(null);
@@ -75,7 +79,7 @@ export function DocumentsPanel({ code, initialDocuments }: { code: string; initi
       </Card>
 
       <div className="space-y-2">
-        {initialDocuments.map((doc) => (
+        {documents.map((doc) => (
           <Card key={doc.id} className="flex items-center justify-between !p-4">
             <a
               href={doc.file_url}
@@ -99,7 +103,7 @@ export function DocumentsPanel({ code, initialDocuments }: { code: string; initi
             </div>
           </Card>
         ))}
-        {initialDocuments.length === 0 && <p className="text-sm text-stone-400">No documents yet.</p>}
+        {documents.length === 0 && <p className="text-sm text-stone-400">No documents yet.</p>}
       </div>
     </div>
   );

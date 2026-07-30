@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
 export function DeleteExpenseButton({ code, id }: { code: string; id: string }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +21,8 @@ export function DeleteExpenseButton({ code, id }: { code: string; id: string }) 
         setError(typeof body.error === "string" ? body.error : "Could not delete this expense.");
         return;
       }
-      window.location.href = `/trip/${code}/expenses`;
+      router.push(`/trip/${code}/expenses`);
+      router.refresh();
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {

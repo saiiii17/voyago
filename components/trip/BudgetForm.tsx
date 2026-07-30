@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -15,6 +16,7 @@ export function BudgetForm({
   member: TripMember;
   homeCurrency: string;
 }) {
+  const router = useRouter();
   const [amount, setAmount] = useState(member.budget_amount?.toString() ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function BudgetForm({
         setError(typeof body.error === "string" ? body.error : "Could not save your budget.");
         return;
       }
-      window.location.reload();
+      router.refresh();
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {

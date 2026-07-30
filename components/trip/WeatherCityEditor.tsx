@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
 export function WeatherCityEditor({
@@ -12,6 +13,7 @@ export function WeatherCityEditor({
   currentCity: string | null;
   placeholder: string;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [city, setCity] = useState(currentCity ?? "");
   const [saving, setSaving] = useState(false);
@@ -32,7 +34,8 @@ export function WeatherCityEditor({
         setError(typeof body.error === "string" ? body.error : "Could not update city.");
         return;
       }
-      window.location.reload();
+      setEditing(false);
+      router.refresh();
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {

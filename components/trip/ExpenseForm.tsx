@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
@@ -27,6 +28,7 @@ export function ExpenseForm({
   members: TripMember[];
   homeCurrency: string;
 }) {
+  const router = useRouter();
   const [splitMode, setSplitMode] = useState<"itemized" | "equal">("itemized");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("food");
@@ -166,7 +168,8 @@ export function ExpenseForm({
         return;
       }
 
-      window.location.href = `/trip/${code}/expenses`;
+      router.push(`/trip/${code}/expenses`);
+      router.refresh();
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {

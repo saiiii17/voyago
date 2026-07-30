@@ -32,6 +32,7 @@ export function PlacesPanel({
   homeCurrency: string;
   initialPlaces: TripPlace[];
 }) {
+  const [places, setPlaces] = useState(initialPlaces);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<PlaceCategory>("activity");
   const [notes, setNotes] = useState("");
@@ -61,7 +62,11 @@ export function PlacesPanel({
         setError(typeof body.error === "string" ? body.error : "Could not add that place.");
         return;
       }
-      window.location.reload();
+      const { place } = await res.json();
+      setPlaces((prev) => [place, ...prev]);
+      setName("");
+      setNotes("");
+      setEstimatedCost("");
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {
@@ -75,41 +80,42 @@ export function PlacesPanel({
       visited: "skipped",
       skipped: "planned",
     };
-    setBusyId(place.id);
+    const newStatus = next[place.status];
     setError(null);
+    setPlaces((prev) => prev.map((p) => (p.id === place.id ? { ...p, status: newStatus } : p)));
 
     try {
       const res = await fetch(`/api/trips/${code}/places/${place.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: next[place.status] }),
+        body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) {
+        setPlaces((prev) => prev.map((p) => (p.id === place.id ? { ...p, status: place.status } : p)));
         const body = await res.json().catch(() => ({}));
         setError(typeof body.error === "string" ? body.error : "Could not update that place.");
-        return;
       }
-      window.location.reload();
     } catch {
+      setPlaces((prev) => prev.map((p) => (p.id === place.id ? { ...p, status: place.status } : p)));
       setError("Something went wrong — check your connection and try again.");
-    } finally {
-      setBusyId(null);
     }
   }
 
   async function remove(id: string) {
     setBusyId(id);
     setError(null);
+    const previous = places;
+    setPlaces((prev) => prev.filter((p) => p.id !== id));
 
     try {
       const res = await fetch(`/api/trips/${code}/places/${id}`, { method: "DELETE" });
       if (!res.ok) {
+        setPlaces(previous);
         const body = await res.json().catch(() => ({}));
         setError(typeof body.error === "string" ? body.error : "Could not remove that place.");
-        return;
       }
-      window.location.reload();
     } catch {
+      setPlaces(previous);
       setError("Something went wrong — check your connection and try again.");
     } finally {
       setBusyId(null);
@@ -153,7 +159,7 @@ export function PlacesPanel({
       </Card>
 
       <div className="space-y-2">
-        {initialPlaces.map((p) => (
+        {places.map((p) => (
           <Card key={p.id} className="flex items-start justify-between !p-4">
             <div className="flex gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-base">
@@ -162,9 +168,9 @@ export function PlacesPanel({
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-stone-900">{p.name}</p>
-                  <button onClick={() => cycleStatus(p)} disabled={busyId === p.id} className="disabled:opacity-50">
+                  <button onClick={() => cycleStatus(p)}>
                     <Badge tone={STATUS_TONE[p.status]} className={p.status === "skipped" ? "line-through" : ""}>
-                      {busyId === p.id ? "…" : p.status}
+                      {p.status}
                     </Badge>
                   </button>
                 </div>
@@ -182,12 +188,12 @@ export function PlacesPanel({
                 className="text-stone-300 hover:text-red-500 disabled:opacity-50"
                 aria-label="Remove place"
               >
-                ✕
+                {busyId === p.id ? "…" : "✕"}
               </button>
             </div>
           </Card>
         ))}
-        {initialPlaces.length === 0 && (
+        {places.length === 0 && (
           <Card className="text-center text-sm text-stone-500">Nothing planned yet — add your first spot above.</Card>
         )}
       </div>

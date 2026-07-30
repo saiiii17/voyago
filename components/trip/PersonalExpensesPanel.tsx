@@ -18,6 +18,7 @@ export function PersonalExpensesPanel({
   homeCurrency: string;
   initialExpenses: PersonalExpense[];
 }) {
+  const [expenses, setExpenses] = useState(initialExpenses);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("other");
   const [amount, setAmount] = useState(0);
@@ -26,7 +27,7 @@ export function PersonalExpensesPanel({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const total = initialExpenses.reduce((sum, e) => sum + e.amount * e.fx_rate_to_home, 0);
+  const total = expenses.reduce((sum, e) => sum + e.amount * e.fx_rate_to_home, 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +45,10 @@ export function PersonalExpensesPanel({
         setError(typeof body.error === "string" ? body.error : "Could not save that cost.");
         return;
       }
-      window.location.reload();
+      const { personalExpense } = await res.json();
+      setExpenses((prev) => [personalExpense, ...prev]);
+      setTitle("");
+      setAmount(0);
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {
@@ -55,16 +59,18 @@ export function PersonalExpensesPanel({
   async function handleDelete(id: string) {
     setDeletingId(id);
     setError(null);
+    const previous = expenses;
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
 
     try {
       const res = await fetch(`/api/trips/${code}/personal-expenses/${id}`, { method: "DELETE" });
       if (!res.ok) {
+        setExpenses(previous);
         const body = await res.json().catch(() => ({}));
         setError(typeof body.error === "string" ? body.error : "Could not delete that cost.");
-        return;
       }
-      window.location.reload();
     } catch {
+      setExpenses(previous);
       setError("Something went wrong — check your connection and try again.");
     } finally {
       setDeletingId(null);
@@ -115,7 +121,7 @@ export function PersonalExpensesPanel({
       </Card>
 
       <div className="space-y-2">
-        {initialExpenses.map((e) => (
+        {expenses.map((e) => (
           <Card key={e.id} className="flex items-center justify-between !p-4">
             <div>
               <p className="font-medium text-stone-900">{e.title}</p>

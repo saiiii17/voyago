@@ -1,19 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { TripMember } from "@/lib/types/database";
 
 export function MembersPanel({
   code,
-  members,
+  members: initialMembers,
   ownerId,
 }: {
   code: string;
   members: TripMember[];
   ownerId: string;
 }) {
+  const router = useRouter();
+  const [members, setMembers] = useState(initialMembers);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -21,19 +24,27 @@ export function MembersPanel({
   async function remove(memberId: string) {
     setBusyId(memberId);
     setError(null);
+    const previous = members;
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
 
     try {
       const res = await fetch(`/api/trips/${code}/members/${memberId}`, { method: "DELETE" });
       if (!res.ok) {
+        setMembers(previous);
         const body = await res.json().catch(() => ({}));
         setError(typeof body.error === "string" ? body.error : "Could not remove that person.");
-        setBusyId(null);
         return;
       }
-      window.location.reload();
+      // This panel's own list is already updated optimistically above; other
+      // components on this page (balances, charts) still hold this member's
+      // stale server props, so refresh those in the background without a
+      // jarring full reload of this panel itself.
+      router.refresh();
     } catch {
-      setBusyId(null);
+      setMembers(previous);
       setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setBusyId(null);
     }
   }
 

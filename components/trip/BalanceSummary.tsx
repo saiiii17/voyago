@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
@@ -26,7 +27,9 @@ function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
   );
 }
 
-export function BalanceSummary({ code, homeCurrency, balances, suggestions, members }: Props) {
+export function BalanceSummary({ code, homeCurrency, balances, suggestions: initialSuggestions, members }: Props) {
+  const router = useRouter();
+  const [suggestions, setSuggestions] = useState(initialSuggestions);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const nameById = new Map(members.map((m) => [m.id, m.display_name]));
@@ -36,6 +39,11 @@ export function BalanceSummary({ code, homeCurrency, balances, suggestions, memb
     const key = `${s.fromMemberId}:${s.toMemberId}`;
     setBusyKey(key);
     setError(null);
+    const previous = suggestions;
+    // Optimistic: drop it from the list immediately. The balances table
+    // above still shows pre-settlement figures until the background refresh
+    // lands, but the actionable "still owes" list updates instantly.
+    setSuggestions((prev) => prev.filter((x) => !(x.fromMemberId === s.fromMemberId && x.toMemberId === s.toMemberId)));
 
     try {
       const res = await fetch(`/api/trips/${code}/settlements`, {
@@ -44,12 +52,14 @@ export function BalanceSummary({ code, homeCurrency, balances, suggestions, memb
         body: JSON.stringify({ fromMemberId: s.fromMemberId, toMemberId: s.toMemberId, amount: s.amount }),
       });
       if (!res.ok) {
+        setSuggestions(previous);
         const body = await res.json().catch(() => ({}));
         setError(typeof body.error === "string" ? body.error : "Could not mark that as paid.");
         return;
       }
-      window.location.reload();
+      router.refresh();
     } catch {
+      setSuggestions(previous);
       setError("Something went wrong — check your connection and try again.");
     } finally {
       setBusyKey(null);

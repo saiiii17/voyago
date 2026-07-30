@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
@@ -10,13 +11,21 @@ interface PendingRequest {
   profiles: { display_name: string; email: string } | null;
 }
 
-export function JoinRequestsPanel({ code, requests }: { code: string; requests: PendingRequest[] }) {
+export function JoinRequestsPanel({ code, requests: initialRequests }: { code: string; requests: PendingRequest[] }) {
+  const router = useRouter();
+  const [requests, setRequests] = useState(initialRequests);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function decide(requestId: string, action: "approve" | "reject") {
     setBusyId(requestId);
     setError(null);
+    const previous = requests;
+    // Optimistic: drop it from this panel immediately rather than waiting on
+    // a refresh — this list is a self-contained prop snapshot, so it doesn't
+    // need to wait for the rest of the page (e.g. the members list, which is
+    // synced separately below) to know its own job here is done.
+    setRequests((prev) => prev.filter((r) => r.id !== requestId));
 
     try {
       const res = await fetch(`/api/trips/${code}/join-requests`, {
@@ -25,18 +34,22 @@ export function JoinRequestsPanel({ code, requests }: { code: string; requests: 
         body: JSON.stringify({ requestId, action }),
       });
       if (!res.ok) {
+        setRequests(previous);
         const body = await res.json().catch(() => ({}));
         setError(typeof body.error === "string" ? body.error : "Could not update that request.");
-        setBusyId(null);
         return;
       }
-      // Hard reload, not router.refresh(): this list is passed down from a
-      // Server Component prop, and a soft refresh was leaving the approved/
-      // declined request showing here until a manual page reload.
-      window.location.reload();
+      if (action === "approve") {
+        // Only needed to bring the new member into the Members panel /
+        // balances elsewhere on this page — this panel's own state is
+        // already correct without it.
+        router.refresh();
+      }
     } catch {
-      setBusyId(null);
+      setRequests(previous);
       setError("Something went wrong — check your connection and try again.");
+    } finally {
+      setBusyId(null);
     }
   }
 

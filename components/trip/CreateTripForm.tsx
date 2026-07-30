@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 
 const COMMON_CURRENCIES = ["USD", "EUR", "GBP", "INR", "VND", "THB", "SGD", "AUD", "CAD", "JPY"];
 
 export function CreateTripForm({ suggestedName }: { suggestedName: string }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [destination, setDestination] = useState("");
   const [homeCurrency, setHomeCurrency] = useState("USD");
@@ -33,7 +35,7 @@ export function CreateTripForm({ suggestedName }: { suggestedName: string }) {
       }
 
       const { trip } = await res.json();
-      window.location.href = `/trip/${trip.code}`;
+      router.push(`/trip/${trip.code}`);
     } catch {
       setError("Something went wrong — check your connection and try again.");
     } finally {
